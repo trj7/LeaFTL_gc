@@ -1,0 +1,12 @@
+{
+  "flash_config": {
+    "n_pages_per_block": 32,
+    "n_blocks_per_plane": 32,
+    "n_planes_per_chip": 32,
+    "n_chips_per_package": 1,
+    "n_packages_per_channel": 8,
+    "n_channels_per_dev": 16
+  },
+  "LPN_LEN":3,
+  "PPN_LEN":3
+}
