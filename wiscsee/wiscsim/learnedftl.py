@@ -587,7 +587,6 @@ class Ftl(ftlbuilder.FtlBuilder):
             self.metadata.bvc.gc_block(erased_pbn)
         count = 0
         all_ppns_to_write = []
-        print("free_blocks:{}".format(len(self.metadata.bvc.free_block_list)))
         for lpn in validate_pages:
             if count % self.conf.n_pages_per_block == 0:
                 next_free_block = self.metadata.bvc.next_free_block()
@@ -609,7 +608,6 @@ class Ftl(ftlbuilder.FtlBuilder):
         for ppn in all_ppns_to_write:
             p = self.env.process(self._write_ppns([ppn]))
             write_procs.append(p)
-        print("free_blocks:{}".format(len(self.metadata.bvc.free_block_list)))    
         start = self.env.now
         yield simpy.AllOf(self.env, erase_procs)
         yield simpy.AllOf(self.env, bvc_erase_procs)
