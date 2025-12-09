@@ -1,4 +1,5 @@
-/wiscsee/leaftl_scripts/leaftl_traces
-/wiscsee/leaftl_scripts/raw_results
-/wiscsee/leaftl_scripts/[0-9]*
-/wiscsee/leaftl_scripts/pypy*
+/wiscsee/leaftl_scripts/leaftl_traces/
+/wiscsee/leaftl_scripts/raw_results/
+*.pyc
+__pycache__/
+*.log

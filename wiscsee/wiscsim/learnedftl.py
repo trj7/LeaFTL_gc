@@ -99,6 +99,13 @@ class Ftl(ftlbuilder.FtlBuilder):
     def lpn_to_ppn(self, lpn):
         return self.metadata.lpn_to_ppn(lpn)
 
+    def warm_write_finish(self):
+        self.counter['mapping_table_write_miss'] = 0
+        self.counter['mapping_table_write_hit'] = 0
+        self.counter['mapping_table_read_miss'] = 0
+        self.counter['mapping_table_read_hit'] = 0
+        log_msg('warm_write_finsh:')
+        
     def end_ssd(self):
 
         self.metadata.mapping_table.compact(promote=True)

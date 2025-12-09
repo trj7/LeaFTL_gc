@@ -270,7 +270,8 @@ class Ssd(SsdBase):
             elif  operation == OP_DISCARD:
                 yield self.env.process(
                     self.ftl.discard_ext(host_event.get_lpn_extent(self.conf)))
-
+            elif operation == OP_WARM_WRITE_FINISH:
+                self.ftl.warm_write_finish()
             elif operation in [OP_FALLOCATE]:
                 pass
 

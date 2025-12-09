@@ -1,0 +1,2 @@
+export PATH=$PATH:$(pwd)/../pypy2.7-v7.3.9-linux64/bin
+pypy ../run_ftl -sl 0 -l 1000000000 -t /home/user/trj/LeaFTL/wiscsee/leaftl_scripts/leaftl_traces/16G/rw82_14400M_zoned91_48G_200ns_shuffle_precond.trace -c 8 -mc 2048  -f learnedftl -wo 0 -q 1 -p 4096 -o /home/user/trj/LeaFTL/wiscsee/leaftl_scripts/raw_results/memory_batch/91/test_16G_2M >> /home/user/trj/LeaFTL/wiscsee/leaftl_scripts/raw_results/memory_batch/91/test_16G_2M_stdout_write_rw82.txt -cf /home/user/trj/LeaFTL/wiscsee/leaftl_scripts/config/16G.json
