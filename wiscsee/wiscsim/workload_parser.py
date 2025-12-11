@@ -159,14 +159,14 @@ def parse_events(filename, page_size, recorder=True, start_lineno=0, lineno=floa
                 if write_only:
                     continue
                 op = OP_READ
-                should_warm_up = False
-                for lpn in split_lpns(offset, size, page_size):
-                    if lpn not in exist_lpns:
-                        should_warm_up = True
-                        exist_lpns[lpn] = None
-                if should_warm_up:
-                    warm_up_writes += [Event(512, 0, OP_WRITE, offset, size, timestamp=0)]
-                    num_writes += len(split_lpns(offset, size, page_size))
+                # should_warm_up = False
+                # for lpn in split_lpns(offset, size, page_size):
+                #     if lpn not in exist_lpns:
+                #         should_warm_up = True
+                #         exist_lpns[lpn] = None
+                # if should_warm_up:
+                #     warm_up_writes += [Event(512, 0, OP_WRITE, offset, size, timestamp=0)]
+                #     num_writes += len(split_lpns(offset, size, page_size))
             # ["Write", "W", 1, 'w', "WS","WM"]
             elif mode in ["Write", "W", 0, 'w', "WS","WM"]:
                 op = OP_WRITE

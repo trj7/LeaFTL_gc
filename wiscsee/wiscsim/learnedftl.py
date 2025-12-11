@@ -130,6 +130,10 @@ class Ftl(ftlbuilder.FtlBuilder):
         if self.counter['mapping_table_read_miss'] + self.counter['mapping_table_read_hit'] > 0:
             log_msg("Mapping Table Read Miss Ratio: %.5f" % (self.counter['mapping_table_read_miss'] / float(self.counter['mapping_table_read_miss'] + self.counter['mapping_table_read_hit'])))
 
+        if self.counter['mapping_table_write_miss'] + self.counter['mapping_table_write_hit']+self.counter['mapping_table_read_miss'] + self.counter['mapping_table_read_hit'] > 0:
+            ratio = (self.counter['mapping_table_write_hit'] + self.counter['mapping_table_read_hit'])/float(self.counter['mapping_table_write_miss'] + self.counter['mapping_table_write_hit']+self.counter['mapping_table_read_miss'] + self.counter['mapping_table_read_hit'])
+            log_msg("Mapping Table Hit Ration:%.5f" % (ratio))
+
         log_msg(self.counter)
         if sum(self.metadata.levels.values()) > 0:
             log_msg("Avg lookup", sum(self.metadata.levels.values()), sum(int(k)*int(v) for k, v in self.metadata.levels.items()) / float(sum(self.metadata.levels.values())))
@@ -353,7 +357,16 @@ class Ftl(ftlbuilder.FtlBuilder):
             self.metadata.mapping_table.promote()
             self.display_msg("Write")
             self.pre_written_bytes = self.written_bytes
+            log_msg("frames:%d"%(len(self.metadata.mapping_table.frames)))
+            if self.counter['mapping_table_write_miss'] + self.counter['mapping_table_write_hit'] > 0:
+                log_msg("Mapping Table Write Miss Ratio: %.5f" % (self.counter['mapping_table_write_miss'] / float(self.counter['mapping_table_write_miss'] + self.counter['mapping_table_write_hit'])))
 
+            if self.counter['mapping_table_read_miss'] + self.counter['mapping_table_read_hit'] > 0:
+                log_msg("Mapping Table Read Miss Ratio: %.5f" % (self.counter['mapping_table_read_miss'] / float(self.counter['mapping_table_read_miss'] + self.counter['mapping_table_read_hit'])))
+
+            if self.counter['mapping_table_write_miss'] + self.counter['mapping_table_write_hit']+self.counter['mapping_table_read_miss'] + self.counter['mapping_table_read_hit'] > 0:
+                ratio = (self.counter['mapping_table_write_hit'] + self.counter['mapping_table_read_hit'])/float(self.counter['mapping_table_write_miss'] + self.counter['mapping_table_write_hit']+self.counter['mapping_table_read_miss'] + self.counter['mapping_table_read_hit'])
+                log_msg("Mapping Table Hit Ration:%.5f" % (ratio))
             yield self.env.timeout(COMPACTION_DELAY)
             # roots = objgraph.get_leaking_objects()
             # objgraph.show_most_common_types() 
@@ -1680,7 +1693,6 @@ class LogPLR():
         self.runs = [run for run in self.runs if len(run) != 0]
                   
     def compact(self, promote=False):
-        return
         if len(self.runs) == 0:
             return
 
@@ -1709,7 +1721,7 @@ class LogPLR():
                             #     if not old_seg.consecutive:
                             #         relearn[old_seg] = sum(old_seg.filter) - 2
                             new_seg, updated_old_seg, same_level = Segment.merge(new_seg, old_seg)
-                            if not updated_old_seg:
+                            if not updated_old_seg:  
                                     self.runs[lower_layer].remove(old_seg)
                                     results[lower_layer].remove(old_seg)
         # return dict() #relearn
@@ -1834,7 +1846,8 @@ class FrameLogPLR:
                 # log_msg(frame_no, "brought to memory")
                 self.dirty[frame_no] = False
                 self.frames[frame_no] = frame
-                # del self.frame_on_flash[frame_no]
+                del self.frame_on_flash[frame_no]
+                self.metadata.pvb.invalidate_page(blocknum)
                 
             self.frames.move_to_head(frame_no, self.frames[frame_no])
             # log_msg("Move to head", frame_no)
@@ -1933,37 +1946,34 @@ class FrameLogPLR:
             original_memory -= freed_mem
             self.change_size_of_frame(frame_no, 0) 
             evicted_frames.append(frame_no)
-            # new_ppn, old_ppn = self.allocate_ppn_for_frame(frame_no)
-            # if self.dirty[frame_no]:
-            #     self.counter["flush mapping table"] += 1
-            # self.dirty[frame_no] = False
-            # pages_to_write.append(new_ppn)
-
-            # if frame_no in self.frame_on_flash:
-            #     # log_msg(frame_no, "merged with flash")
-            #     old_frame = self.frame_on_flash[frame_no]
-            #     pages_to_read += [old_ppn]
-            #     evict_frame.merge(old_frame)
-            # self.frame_on_flash[frame_no] = evict_frame
-            # point_count = 0
-            # for frame in self.frames.values() :
-            #     for seg in frame.segments:
-            #         point_count += len(seg._points)
-            # log_msg("point_count: %d" %( point_count ))
-
+            new_ppn, old_ppn = self.allocate_ppn_for_frame(frame_no)
             if self.dirty[frame_no]:
-                new_ppn, old_ppn = self.allocate_ppn_for_frame(frame_no)
                 self.counter["flush mapping table"] += 1
-                self.dirty[frame_no] = False
-                pages_to_write.append(new_ppn)
-                if old_ppn:
-                    self.metadata.pvb.invalidate_page(old_ppn)
-                if frame_no in self.frame_on_flash:
-                    # log_msg(frame_no, "merged with flash")
-                    old_frame = self.frame_on_flash[frame_no]
-                    pages_to_read += [old_ppn]
-                    evict_frame.merge(old_frame)
-                self.frame_on_flash[frame_no] = evict_frame
+            if old_ppn:
+                self.metadata.pvb.invalidate_page(old_ppn)
+            self.dirty[frame_no] = False
+            pages_to_write.append(new_ppn)
+
+            if frame_no in self.frame_on_flash:
+                # log_msg(frame_no, "merged with flash")
+                old_frame = self.frame_on_flash[frame_no]
+                pages_to_read += [old_ppn]
+                evict_frame.merge(old_frame)
+            self.frame_on_flash[frame_no] = evict_frame
+
+            # if self.dirty[frame_no]:
+            #     new_ppn, old_ppn = self.allocate_ppn_for_frame(frame_no)
+            #     self.counter["flush mapping table"] += 1
+            #     self.dirty[frame_no] = False
+            #     pages_to_write.append(new_ppn)
+            #     if old_ppn:
+            #         self.metadata.pvb.invalidate_page(old_ppn)
+            #     if frame_no in self.frame_on_flash:
+            #         # log_msg(frame_no, "merged with flash")
+            #         old_frame = self.frame_on_flash[frame_no]
+            #         pages_to_read += [old_ppn]
+            #         evict_frame.merge(old_frame)
+            #     self.frame_on_flash[frame_no] = evict_frame
         # log_msg("%.2f miss ratio, %s evicted, %d memory, %d in cache, %d on flash" % (self.misses / float(self.misses + self.hits), evicted_frames, self.memory, len(self.frames), len(self.frame_on_flash)))
         # log_msg("%d miss, %d memory flushed, %s evicted, %d memory, %d in cache, %d on flash" % (self.misses, original_memory - self.memory, evicted_frames, self.memory, len(self.frames), len(self.frame_on_flash)))
         return pages_to_write, list(set(pages_to_read))
