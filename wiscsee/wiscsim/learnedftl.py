@@ -603,7 +603,7 @@ class Ftl(ftlbuilder.FtlBuilder):
             num_validate_pages = self.metadata.bvc.counter[block]
             # free =1.0 - num_validate_pages / self.conf.n_pages_per_block
             # validate_ration_dic[block] = free
-            if num_validate_pages / self.conf.n_pages_per_block <= 0.5:
+            if num_validate_pages / self.conf.n_pages_per_block <= 0.6:
                 erased_pbns.append(block)
                 validate_pages += self.metadata.pvb.get_valid_pages(block)
         # sorted_blocks = sorted(validate_ration_dic.items(),key = lambda x : x[1],reverse= True)
@@ -611,7 +611,7 @@ class Ftl(ftlbuilder.FtlBuilder):
         #     erased_pbns.append(block)
         #     validate_pages += self.metadata.pvb.get_valid_pages(block)
         # print(validate_pages)
-        log_msg("gc_begin")
+        # log_msg("gc_begin")
         for erased_pbn in erased_pbns:
             self.metadata.pvb.invalidate_block(erased_pbn)
             self.metadata.bvc.gc_block(erased_pbn)
@@ -653,8 +653,8 @@ class Ftl(ftlbuilder.FtlBuilder):
         erase_finished = self.env.now
         yield simpy.AllOf(self.env, write_procs)
         write_finished = self.env.now
-        log_msg("gc_end")
-        print(len(validate_pages), erase_finished - start, write_finished - erase_finished)
+        # log_msg("gc_end")
+        # print(len(validate_pages), erase_finished - start, write_finished - erase_finished)
 
     def is_wear_leveling_needed(self):
         factor, diff = self.block_pool.get_wear_status()
@@ -667,13 +667,14 @@ class Ftl(ftlbuilder.FtlBuilder):
         pass
 
     def is_cleaning_needed(self):
-        useful_blocks = len(self.metadata.bvc.counter)
+        free_block = len(self.metadata.bvc.free_block_list)
         if self.written_bytes < self.pre_written_bytes_gc + self.gc_interval:
-            if useful_blocks / self.metadata.bvc.total_block >=0.96:
+            # log_msg("useful ration:%.2f"%(free_block / self.metadata.bvc.total_block))
+            if free_block / self.metadata.bvc.total_block <=0.04:
                 return True
             return False
         
-        if useful_blocks / self.metadata.bvc.total_block >=  self.conf.GC_high_threshold_ratio:
+        if free_block / self.metadata.bvc.total_block <= 1 - self.conf.GC_high_threshold_ratio:
             return True
         return False
 
