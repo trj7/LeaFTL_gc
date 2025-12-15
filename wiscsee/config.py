@@ -465,9 +465,9 @@ class ConfigNewFlash(Config):
             # TODO: these are fixed numbers, but they are random in real world
             # TODO: Note that the SSD time is different than the flash package time
             # DES flash does not use the following three
-            "page_read_time"        : 200*MICROSEC,  # Max
-            "page_prog_time"        : 1200*MICROSEC, # Typical
-            "block_erase_time"      : 1.6*MILISEC, # Typical
+            "page_read_time"        : 85*MICROSEC,  # Max
+            "page_prog_time"        : 1650*MICROSEC, # Typical
+            "block_erase_time"      : 10*MILISEC, # Typical
 
             # "t_WC"                  : 45*NANOSEC,
             # "t_RC"                  : 50*NANOSEC,
@@ -476,9 +476,9 @@ class ConfigNewFlash(Config):
 
             # "t_R"                   : 20*MICROSEC,
             # "t_PROG"                : 200*MICROSEC,
-            "t_R"                   : 200*MICROSEC,
-            "t_PROG"                : 1200*MICROSEC,
-            "t_BERS"                : 1.5*MILISEC
+            "t_R"                   : 85*MICROSEC,
+            "t_PROG"                : 1650*MICROSEC,
+            "t_BERS"                : 10*MILISEC
             }
         return flash_config
 

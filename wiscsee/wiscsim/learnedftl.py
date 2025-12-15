@@ -45,7 +45,7 @@ LENGTH_BYTES = 1  # MAX_SEGMENT_LENGTH = 256
 CACHE_HIT = 300
 COMPACTION_DELAY = 4300
 LOOKUP_LATENCY = 50
-
+DEBUG = False
 # relearn_counter = 0
 # relearn_ppns = []
 
@@ -215,7 +215,16 @@ class Ftl(ftlbuilder.FtlBuilder):
         if self.read_bytes > self.pre_read_bytes + self.display_interval:
             self.display_msg("Read")
             self.pre_read_bytes = self.read_bytes
+            log_msg("frames:%d"%(len(self.metadata.mapping_table.frames)))
+            if self.counter['mapping_table_write_miss'] + self.counter['mapping_table_write_hit'] > 0:
+                log_msg("Mapping Table Write Miss Ratio: %.5f" % (self.counter['mapping_table_write_miss'] / float(self.counter['mapping_table_write_miss'] + self.counter['mapping_table_write_hit'])))
 
+            if self.counter['mapping_table_read_miss'] + self.counter['mapping_table_read_hit'] > 0:
+                log_msg("Mapping Table Read Miss Ratio: %.5f" % (self.counter['mapping_table_read_miss'] / float(self.counter['mapping_table_read_miss'] + self.counter['mapping_table_read_hit'])))
+
+            if self.counter['mapping_table_write_miss'] + self.counter['mapping_table_write_hit']+self.counter['mapping_table_read_miss'] + self.counter['mapping_table_read_hit'] > 0:
+                ratio = (self.counter['mapping_table_write_hit'] + self.counter['mapping_table_read_hit'])/float(self.counter['mapping_table_write_miss'] + self.counter['mapping_table_write_hit']+self.counter['mapping_table_read_miss'] + self.counter['mapping_table_read_hit'])
+                log_msg("Mapping Table Hit Ration:%.5f" % (ratio))
         extents = split_ext(extent)
         start_time = self.env.now # <----- start
             
@@ -578,7 +587,7 @@ class Ftl(ftlbuilder.FtlBuilder):
         self.pre_written_bytes_gc = self.written_bytes
         erased_pbns = []
         validate_pages = []
-  
+    
         num_valid = sum(self.metadata.bvc.counter[block] for block in self.metadata.bvc.counter)
         num_all = float(sum(self.conf.n_pages_per_block for block in self.metadata.bvc.counter if self.metadata.bvc.counter[block] > 0))
         # print(num_valid / num_all)
@@ -602,12 +611,21 @@ class Ftl(ftlbuilder.FtlBuilder):
         #     erased_pbns.append(block)
         #     validate_pages += self.metadata.pvb.get_valid_pages(block)
         # print(validate_pages)
+        log_msg("gc_begin")
         for erased_pbn in erased_pbns:
             self.metadata.pvb.invalidate_block(erased_pbn)
             self.metadata.bvc.gc_block(erased_pbn)
         count = 0
         all_ppns_to_write = []
-        for lpn in validate_pages:
+        all_lpns_to_relearn = []
+        global DEBUG
+        DEBUG = True
+        yield self.env.timeout(4*1000*1000*MICROSEC)
+        for ppn in validate_pages:
+            lpn = self.metadata.ppn_to_lpn_mapping_table.get(ppn)
+            if lpn :
+                all_lpns_to_relearn.append(lpn)
+                continue
             if count % self.conf.n_pages_per_block == 0:
                 next_free_block = self.metadata.bvc.next_free_block()
                 self.metadata.pvb.validate_block(next_free_block)
@@ -617,10 +635,12 @@ class Ftl(ftlbuilder.FtlBuilder):
                 next_free_ppn += 1
                 count += 1
             all_ppns_to_write.append(next_free_ppn)
-
+        all_lpns_to_relearn.sort() 
+        all_lpns_to_relearn = list(dict.fromkeys(all_lpns_to_relearn))
+        mapping,pages_to_read,pages_to_write =self.metadata.update(all_lpns_to_relearn)
         # print(all_ppns_to_write)
-        bvc_erase_procs = []
         erase_procs = []
+        all_ppns_to_write += pages_to_write
         for erased_pbn in erased_pbns:
             erase_procs += [self.env.process(self.des_flash.erase_pbn_extent(pbn_start = erased_pbn, pbn_count = 1, tag = None))]
 
@@ -630,10 +650,10 @@ class Ftl(ftlbuilder.FtlBuilder):
             write_procs.append(p)
         start = self.env.now
         yield simpy.AllOf(self.env, erase_procs)
-        yield simpy.AllOf(self.env, bvc_erase_procs)
         erase_finished = self.env.now
         yield simpy.AllOf(self.env, write_procs)
         write_finished = self.env.now
+        log_msg("gc_end")
         print(len(validate_pages), erase_finished - start, write_finished - erase_finished)
 
     def is_wear_leveling_needed(self):
@@ -880,6 +900,7 @@ class FlashMetadata(object):
 
         Segment.PAGE_PER_BLOCK = self.flash_npage_per_block
         self.reference_mapping_table = PFTL()
+        self.ppn_to_lpn_mapping_table = PFTL()
         # flash block -> last invalidation time and num of valid pages
         self.bvc = BlockValidityCounter(confobj)
         # Key metadata structures
@@ -916,8 +937,8 @@ class FlashMetadata(object):
                 real_ppn = ppn
 
             else:
-                # self.counter['mapping_table_read_hit'] -= 1
-                # self.counter['mapping_table_read_miss'] += 1
+                self.counter['mapping_table_read_hit'] -= 1
+                self.counter['mapping_table_read_miss'] += 1
                 actual = self.oob.lpn_to_ppn(lpn, source_page=ppn)
                 if actual:
                     real_ppn = actual
@@ -985,7 +1006,6 @@ class FlashMetadata(object):
         pages_to_read = []
         pages_to_write = []
         extents = sorted(extents)
-
         # find the next free block
         next_free_block = self.bvc.next_free_block()
         next_free_ppn = self.conf.n_pages_per_block * next_free_block
@@ -995,7 +1015,6 @@ class FlashMetadata(object):
             entry = (lpn, next_free_ppn + i)
             entries.append(entry)
             self.pvb.validate_page(next_free_ppn+i)
-
         #TODO: additional flash reads; make this async; write to bitmap
         # self.pvb.validate_block(next_free_block)
         # if self.conf["dry_run"]:
@@ -1025,6 +1044,7 @@ class FlashMetadata(object):
         # update reference mapping table
         for (lpn, ppn) in entries:
             self.reference_mapping_table.set(lpn, ppn)
+            self.ppn_to_lpn_mapping_table.set(ppn,lpn)
 
         # update oob
         # store the lpn of each ppn within [ppn - gamma - 1, ppn + gamma + 1]
@@ -1141,6 +1161,8 @@ class SimpleSegment():
 
     @staticmethod
     def frompoints(p1, p2):
+        if p2[0] == p1[0]:
+            print(p2,p1)
         k = float(p2[1] - p1[1]) / (p2[0] - p1[0])
         b = -k * p1[0] + p1[1]
         return SimpleSegment(k, b, p1[0], p2[0])
@@ -1428,7 +1450,7 @@ class PLR():
         if self.state == PLR.FIRST:
             self.s0 = point
             self.state = PLR.SECOND
-
+            
         elif self.state == PLR.SECOND:
             if self.should_stop(point):
                 prev_segment = self.build_segment()

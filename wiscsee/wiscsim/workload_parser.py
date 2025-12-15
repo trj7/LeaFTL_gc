@@ -99,7 +99,7 @@ def parse_events(filename, page_size, recorder=True, start_lineno=0, lineno=floa
             line = list(filter(lambda x: x!= "", line))
 
             if len(line) <5:
-                flag, = line
+                flag = line[0]
                 if flag == '#0x7810':
                     log_msg('warm_write_success:',flag)
                     events += [ControlEvent(OP_WARM_WRITE_FINISH)]
