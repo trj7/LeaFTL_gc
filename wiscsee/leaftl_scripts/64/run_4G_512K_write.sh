@@ -17,7 +17,7 @@ OUT_DIR="$SCRIPT_DIR/../raw_results/memory_batch/64"
 pypy "$SCRIPT_DIR/../run_ftl" \
     -sl 0 \
     -l 1000000000 \
-    -t "$SCRIPT_DIR/../leaftl_traces/4G/write_3600M_zoned64_12G_200ns_shuffle_precond.trace" \
+    -t "$SCRIPT_DIR/../leaftl_traces/4G/write_3600M_zoned64_8G_200ns_shuffle_precond.trace" \
     -c 8 \
     -mc 512 \
     -f learnedftl \
