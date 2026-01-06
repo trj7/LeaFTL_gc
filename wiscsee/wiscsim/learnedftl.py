@@ -595,7 +595,7 @@ class Ftl(ftlbuilder.FtlBuilder):
             return
         if num_valid / num_all > 0.9:
             return
-
+        log_msg("gc")
         validate_ration_dic = defaultdict()
         for block in self.metadata.bvc.counter:
             # if block in self.metadata.bvc.free_block_list:
@@ -621,7 +621,6 @@ class Ftl(ftlbuilder.FtlBuilder):
         global DEBUG
         DEBUG = True
         start_time = time.time()
-        log_msg('start_time:%f'% start_time)
         for ppn in validate_pages:
             lpn = self.metadata.ppn_to_lpn_mapping_table.get(ppn)
             if lpn :
@@ -632,7 +631,6 @@ class Ftl(ftlbuilder.FtlBuilder):
         mapping,pages_to_read,pages_to_write =self.metadata.update(all_lpns_to_relearn)
         end_time = time.time()
         elapsed_time = end_time - start_time
-        log_msg('end_time:%f'% end_time)
         print(elapsed_time)
         yield self.env.timeout(elapsed_time*1000*1000*MICROSEC)
         # print(all_ppns_to_write)
