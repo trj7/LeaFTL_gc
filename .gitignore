@@ -7,3 +7,4 @@ __pycache__/
 *copy
 *.out
 *.gz
+batch_run_leaftl.sh

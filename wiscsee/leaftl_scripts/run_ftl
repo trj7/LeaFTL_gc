@@ -61,7 +61,7 @@ def create_config(filename, ftl_type="dftldes" ):
     conf['LPN_LEN'] = config['LPN_LEN']
     conf['PPN_LEN'] = config['PPN_LEN']
     conf.GC_high_threshold_ratio = 0.8
-    conf.GC_low_threshold_ratio = 0.5
+    conf.GC_low_threshold_ratio = 0.7
 
     conf['enable_simulation'] = True
 
@@ -97,7 +97,7 @@ class RunFTL():
             recorder = False
 
         self.events = parse_events(self.trace, self.conf.page_size, recorder=recorder, start_lineno = start_lineno, lineno=self.lineno, write_only=self.write_only)
-
+        xargs['cache_size'] = 16*KB
         self.conf.update(xargs)
     def run(self):
         eval(self.func)
@@ -106,7 +106,7 @@ class RunFTL():
         pass
 
     def run_learnedftl(self):
-        log_msg("ftl = %s, gamma = %.4f, cache_size = %.2f MB, lineno = %d" % (self.conf['internal_ftl_type'], self.conf['gamma'], self.conf['cache_size'] / MB, self.lineno))
+        log_msg("ftl = %s, gamma = %.4f, cache_size = %.2f KB, lineno = %d" % (self.conf['internal_ftl_type'], self.conf['gamma'], self.conf['cache_size'] / KB, self.lineno))
         wf = Workflow(self.conf)
         sim = wf.run_simulator(self.events)
         mapping_table = sim.ssd.ftl.metadata.mapping_table

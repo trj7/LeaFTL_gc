@@ -620,24 +620,21 @@ class Ftl(ftlbuilder.FtlBuilder):
         all_lpns_to_relearn = []
         global DEBUG
         DEBUG = True
-        yield self.env.timeout(4*1000*1000*MICROSEC)
+        start_time = time.time()
+        log_msg('start_time:%f'% start_time)
         for ppn in validate_pages:
             lpn = self.metadata.ppn_to_lpn_mapping_table.get(ppn)
             if lpn :
                 all_lpns_to_relearn.append(lpn)
                 continue
-            if count % self.conf.n_pages_per_block == 0:
-                next_free_block = self.metadata.bvc.next_free_block()
-                self.metadata.pvb.validate_block(next_free_block)
-                next_free_ppn = self.conf.n_pages_per_block * next_free_block
-                count = 1
-            else:
-                next_free_ppn += 1
-                count += 1
-            all_ppns_to_write.append(next_free_ppn)
         all_lpns_to_relearn.sort() 
         all_lpns_to_relearn = list(dict.fromkeys(all_lpns_to_relearn))
         mapping,pages_to_read,pages_to_write =self.metadata.update(all_lpns_to_relearn)
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+        log_msg('end_time:%f'% end_time)
+        print(elapsed_time)
+        yield self.env.timeout(elapsed_time*1000*1000*MICROSEC)
         # print(all_ppns_to_write)
         erase_procs = []
         all_ppns_to_write += pages_to_write
@@ -670,7 +667,7 @@ class Ftl(ftlbuilder.FtlBuilder):
         free_block = len(self.metadata.bvc.free_block_list)
         if self.written_bytes < self.pre_written_bytes_gc + self.gc_interval:
             # log_msg("useful ration:%.2f"%(free_block / self.metadata.bvc.total_block))
-            if free_block / self.metadata.bvc.total_block <=0.04:
+            if free_block / self.metadata.bvc.total_block <=1 - self.conf.GC_low_threshold_ratio:
                 return True
             return False
         
