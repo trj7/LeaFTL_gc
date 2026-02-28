@@ -390,6 +390,7 @@ class Ssd(SsdBase):
 
     def run(self):
         procs = []
+        log_msg(" qd: %d" %(self.n_processes))
         for i in range(self.n_processes):
             p = self.env.process( self._process(i) )
             procs.append(p)

@@ -90,7 +90,7 @@ class Ftl(ftlbuilder.FtlBuilder):
         self.waf = {"request" : 0, "actual" : 0}
         self.raf = {"request" : 0, "actual" : 0}
         self.enable_recording = False
-    
+        self.start_time = 0
 
 
     def recorder_enabled(self, enable=True):
@@ -105,6 +105,10 @@ class Ftl(ftlbuilder.FtlBuilder):
         self.counter['mapping_table_read_miss'] = 0
         self.counter['mapping_table_read_hit'] = 0
         log_msg('warm_write_finsh:')
+        self.read_latencies = []
+        self.write_latencies = []
+        self.start_time = self.env.now
+        
         
     def end_ssd(self):
 
@@ -140,7 +144,9 @@ class Ftl(ftlbuilder.FtlBuilder):
 
         self.recorder.append_to_value_list('distribution of lookups',
                 self.metadata.levels)
-
+        request_all = self.waf["request"] + self.raf['request']
+        iops = request_all / (self.env.now - self.start_time)
+        log_msg("iops:%f" % (iops))
 
         single_point_count = 0
         seg_count = 0
@@ -595,7 +601,6 @@ class Ftl(ftlbuilder.FtlBuilder):
             return
         if num_valid / num_all > 0.9:
             return
-        log_msg("gc")
         validate_ration_dic = defaultdict()
         for block in self.metadata.bvc.counter:
             # if block in self.metadata.bvc.free_block_list:
@@ -631,7 +636,6 @@ class Ftl(ftlbuilder.FtlBuilder):
         mapping,pages_to_read,pages_to_write =self.metadata.update(all_lpns_to_relearn)
         end_time = time.time()
         elapsed_time = end_time - start_time
-        print(elapsed_time)
         yield self.env.timeout(elapsed_time*1000*1000*MICROSEC)
         # print(all_ppns_to_write)
         erase_procs = []
