@@ -139,12 +139,12 @@ if __name__ == '__main__':
     parser.add_argument('-d', '--dry', dest="dry_run", action='store_true', default=False, help="Perform dry-run")
     parser.add_argument('-o', '--output', dest="output", default='', help="Output directory")
     parser.add_argument('-wo', '--write-only', dest="write_only", default=0, help="Write events only")
-    parser.add_argument('-q', '--ncq-depth', dest="ncq_depth", default=65535, help="NCQ Depth", type=int)
+    parser.add_argument('-q', '--ncq-depth', dest="ncq_depth", default=1, help="NCQ Depth", type=int)
     parser.add_argument('-p', '--page-size', dest="page_size", default=4096, help="Page size", type=int)
     parser.add_argument('-cf','--config-filename', dest="config_filename",required = True, help="filename of config")
     args = parser.parse_args()
 
-    experiment = RunFTL(args.ftl, args.trace, args.start_lineno, args.lineno, args.output, args.write_only, 65535,#args.ncq_depth, 
+    experiment = RunFTL(args.ftl, args.trace, args.start_lineno, args.lineno, args.output, args.write_only, args.ncq_depth, 
                         args.page_size, args.config_filename, gamma=args.gamma, cache_size=int(args.cache_size*MB), dry_run=args.dry_run, mapping_cache_bytes=int(args.mapping_cache_bytes*KB))
     experiment.run()
     
