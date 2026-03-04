@@ -107,6 +107,8 @@ class Ftl(ftlbuilder.FtlBuilder):
         log_msg('warm_write_finsh:')
         self.read_latencies = []
         self.write_latencies = []
+        self.waf = {"request" : 0, "actual" : 0}
+        self.raf = {"request" : 0, "actual" : 0}
         self.start_time = self.env.now
         
         
