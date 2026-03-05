@@ -1,8 +1,8 @@
 #!/bin/bash
 
 MAX_JOBS=3
-KEYWORD="_4G_"
-FOLDERS=("64" "73" "82" "91")
+KEYWORD="_64G_8M_rw55"
+FOLDERS=("91")
 LOG_DIR="./logs"
 
 mkdir -p "$LOG_DIR"
