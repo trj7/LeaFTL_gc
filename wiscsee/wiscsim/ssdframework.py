@@ -271,7 +271,8 @@ class Ssd(SsdBase):
                 yield self.env.process(
                     self.ftl.discard_ext(host_event.get_lpn_extent(self.conf)))
             elif operation == OP_WARM_WRITE_FINISH:
-                self.ftl.warm_write_finish()
+                yield self.env.process(self.ftl.warm_write_finish())
+                break
             elif operation in [OP_FALLOCATE]:
                 pass
 
@@ -389,6 +390,9 @@ class Ssd(SsdBase):
             yield self.env.timeout(self._snapshot_interval)
 
     def run(self):
+
+        warm_write = self.env.process( self._process(0))
+        yield simpy.events.AllOf(self.env, [warm_write])
         procs = []
         log_msg(" qd: %d" %(self.n_processes))
         for i in range(self.n_processes):
