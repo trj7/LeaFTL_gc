@@ -195,7 +195,12 @@ class Ftl(ftlbuilder.FtlBuilder):
             display_bytes = self.read_bytes
         elif mode == "Write":
             display_bytes = self.written_bytes
-
+        
+        ftl_lpns = 0
+        log_msg("frames:%d"%(len(self.metadata.mapping_table.frames)))
+        for frame_no, frame in self.metadata.mapping_table.frames.items():
+            ftl_lpns += len(frame.points)
+        log_msg("FTL LPNs", ftl_lpns)
         avg_lookup = 0
         if float(sum(self.metadata.levels.values())) != 0:
             avg_lookup = sum(int(k)*int(v) for k, v in self.metadata.levels.items()) / float(sum(self.metadata.levels.values()))
@@ -223,7 +228,6 @@ class Ftl(ftlbuilder.FtlBuilder):
         if self.read_bytes > self.pre_read_bytes + self.display_interval:
             self.display_msg("Read")
             self.pre_read_bytes = self.read_bytes
-            log_msg("frames:%d"%(len(self.metadata.mapping_table.frames)))
             if self.counter['mapping_table_write_miss'] + self.counter['mapping_table_write_hit'] > 0:
                 log_msg("Mapping Table Write Miss Ratio: %.5f" % (self.counter['mapping_table_write_miss'] / float(self.counter['mapping_table_write_miss'] + self.counter['mapping_table_write_hit'])))
 
@@ -1515,12 +1519,15 @@ class LogPLR():
         # one run is one level of segments with non-overlapping intervals
         self.runs = []
         self.frame_no = frame_no
+        self.points = set()
         # mapping from block to segments
         # self.block_map = defaultdict(list)
     
     def update(self, entries, blocknum):
         # make sure no same LPNs exist in the entries
         sorted_entries = sorted(entries)
+        for t in entries:
+            self.points.add(t[0])
         # make sure no same 'x1's exist in the new_segments
         self.plr.init()
         new_segments = self.plr.learn(sorted_entries)
