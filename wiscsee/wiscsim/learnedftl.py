@@ -150,6 +150,9 @@ class Ftl(ftlbuilder.FtlBuilder):
         iops = request_all / (self.env.now - self.start_time)
         log_msg("iops:%f" % (iops))
 
+        for frame_no, frame in self.metadata.mapping_table.frames.items():
+            ftl_lpns += len(frame.points)
+        log_msg("FTL LPNs", ftl_lpns)
         single_point_count = 0
         seg_count = 0
         point_count = 0
