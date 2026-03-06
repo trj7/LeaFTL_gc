@@ -110,6 +110,7 @@ class Ftl(ftlbuilder.FtlBuilder):
         self.waf = {"request" : 0, "actual" : 0}
         self.raf = {"request" : 0, "actual" : 0}
         self.start_time = self.env.now
+        yield self.env.timeout(1)
         
         
     def end_ssd(self):
@@ -147,7 +148,7 @@ class Ftl(ftlbuilder.FtlBuilder):
         self.recorder.append_to_value_list('distribution of lookups',
                 self.metadata.levels)
         request_all = self.waf["request"] + self.raf['request']
-        iops = request_all / (self.env.now - self.start_time)
+        iops = (request_all / (self.env.now - self.start_time))*1e9
         log_msg("iops:%f" % (iops))
 
         for frame_no, frame in self.metadata.mapping_table.frames.items():
