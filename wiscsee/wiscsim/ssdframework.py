@@ -102,8 +102,11 @@ class Ssd(SsdBase):
             if len(self.ncq.queue) == 0:
                 break
             host_event, _ = self.ncq.queue.popitem(last=False)
-            #print(host_event)
-
+            # print(host_event)
+            if isinstance(host_event, hostevent.Event):
+                t = host_event.timestamp
+                if t is not None and t > self.env.now:
+                    yield self.env.timeout(t - self.env.now)
             slot_req = self.ncq.slots.request()
             yield slot_req
 
@@ -272,7 +275,7 @@ class Ssd(SsdBase):
                     self.ftl.discard_ext(host_event.get_lpn_extent(self.conf)))
             elif operation == OP_WARM_WRITE_FINISH:
                 yield self.env.process(self.ftl.warm_write_finish())
-                break
+                # break
             elif operation in [OP_FALLOCATE]:
                 pass
 
@@ -391,8 +394,8 @@ class Ssd(SsdBase):
 
     def run(self):
 
-        warm_write = self.env.process( self._process(0))
-        yield simpy.events.AllOf(self.env, [warm_write])
+        # warm_write = self.env.process( self._process(0))
+        # yield simpy.events.AllOf(self.env, [warm_write])
         procs = []
         log_msg(" qd: %d" %(self.n_processes))
         for i in range(self.n_processes):

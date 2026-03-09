@@ -118,7 +118,17 @@ class Ftl(ftlbuilder.FtlBuilder):
         self.metadata.mapping_table.compact(promote=True)
 
         log_msg("End-to-end overall response time per page: %.2fus; Num of requests %d" % ((np.sum(self.write_latencies) + np.sum(self.read_latencies)) /  (self.waf["request"] + self.raf['request']), self.waf["request"] + self.raf['request']))
-
+        
+        if len(self.read_latencies) > 0 :
+            read_p99 = np.percentile(self.read_latencies, 99)
+            log_msg("Read p99 latency %.2fus;" % ( read_p99 ) )
+        if len(self.write_latencies) > 0:
+            write_p99 = np.percentile(self.write_latencies, 99)
+            log_msg("write p99 latency %.2fus;" % ( write_p99 ) )
+        latency = self.read_latencies + self.write_latencies
+        all_p99 = np.percentile(latency, 99)
+        log_msg("all_latency %.2fus" % ( all_p99 ))
+        
         if len(self.read_latencies) > 0:
             log_msg("End-to-end read response time per page: %.2fus; Num of reads %d" % (np.sum(self.read_latencies) / self.raf['request'], self.raf['request']))
 
@@ -151,6 +161,7 @@ class Ftl(ftlbuilder.FtlBuilder):
         iops = (request_all / (self.env.now - self.start_time))*1e9
         log_msg("iops:%f" % (iops))
 
+        ftl_lpns = 0
         for frame_no, frame in self.metadata.mapping_table.frames.items():
             ftl_lpns += len(frame.points)
         log_msg("FTL LPNs", ftl_lpns)

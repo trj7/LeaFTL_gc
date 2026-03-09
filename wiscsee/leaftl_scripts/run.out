@@ -1,5 +1,11 @@
 nohup: ignoring input
 Found 8 trace files.
-Starting: ./leaftl_traces/aliyuntest/110-mq.trace
-Starting: ./leaftl_traces/aliyuntest/252-mq.trace
-Starting: ./leaftl_traces/aliyuntest/284-mq.trace
+Starting: ./leaftl_traces/aliyuntest_40/110-mq.trace
+Starting: ./leaftl_traces/aliyuntest_40/252-mq.trace
+Starting: ./leaftl_traces/aliyuntest_40/284-mq.trace
+Starting: ./leaftl_traces/aliyuntest_40/368-mq.trace
+Starting: ./leaftl_traces/aliyuntest_40/393-mq.trace
+Starting: ./leaftl_traces/aliyuntest_40/516-mq.trace
+Starting: ./leaftl_traces/aliyuntest_40/65-mq.trace
+Starting: ./leaftl_traces/aliyuntest_40/969-mq.trace
+All jobs finished.
