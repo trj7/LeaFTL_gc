@@ -82,7 +82,8 @@ def parse_events(filename, page_size, recorder=True, start_lineno=0, lineno=floa
     if shift_range:
         offset_shift = random.randint(0, capacity)
         offset_shift = offset_shift // page_size * page_size
-
+    row_number = 0
+    warm_finish_row_number = 0
     with open(filename) as fp:
         t_start = None
         last_t = 0
@@ -92,6 +93,7 @@ def parse_events(filename, page_size, recorder=True, start_lineno=0, lineno=floa
         exist_lpns = dict()
         warm_up_writes = []
         for i, raw in enumerate(fp):
+            row_number += 1
             if i < start_lineno:
                 continue
             # parse trace
@@ -101,6 +103,7 @@ def parse_events(filename, page_size, recorder=True, start_lineno=0, lineno=floa
             if len(line) <5:
                 flag = line[0]
                 if flag == '#0x7810':
+                    warm_finish_row_number = row_number
                     log_msg('warm_write_success:',flag)
                     events += [ControlEvent(OP_WARM_WRITE_FINISH)]
                 continue
@@ -207,13 +210,14 @@ def parse_events(filename, page_size, recorder=True, start_lineno=0, lineno=floa
     #     sleep, event = events[i], events[i+1] 
     #     sleep.arg1 = event.timestamp - last_t
     #     last_t = event.timestamp
-
+    row_number = row_number - warm_finish_row_number
+    log_msg("Warm-up finished at row %d, total rows after warm-up %d" % (warm_finish_row_number, row_number))
     events = [ControlEvent(OP_ENABLE_RECORDER)] + warm_up_writes + events
 
     log_msg("Trace %s" % filename)
     log_msg("Total warm-up events %d" % len(warm_up_writes))
     log_msg("Total active events %d" % active_events)
-    return events
+    return events , row_number
 
 
 

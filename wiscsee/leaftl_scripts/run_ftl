@@ -96,8 +96,9 @@ class RunFTL():
         else:
             recorder = False
 
-        self.events = parse_events(self.trace, self.conf.page_size, recorder=recorder, start_lineno = start_lineno, lineno=self.lineno, write_only=self.write_only)
+        self.events , row_number = parse_events(self.trace, self.conf.page_size, recorder=recorder, start_lineno = start_lineno, lineno=self.lineno, write_only=self.write_only)
         xargs['cache_size'] = 16*KB
+        self.conf['requests'] = row_number
         self.conf.update(xargs)
     def run(self):
         eval(self.func)
