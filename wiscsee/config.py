@@ -467,7 +467,7 @@ class ConfigNewFlash(Config):
             # DES flash does not use the following three
             "page_read_time"        : 75*MICROSEC,  # Max
             "page_prog_time"        : 750*MICROSEC, # Typical
-            "block_erase_time"      : 3800*MILISEC, # Typical
+            "block_erase_time"      : 3.8*MILISEC, # Typical
 
             # "t_WC"                  : 45*NANOSEC,
             # "t_RC"                  : 50*NANOSEC,
