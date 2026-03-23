@@ -85,8 +85,12 @@ class Ftl(ftlbuilder.FtlBuilder):
         self.rw_cache = RWCache(self.conf['cache_size'], self.conf.page_size, 8*MB, 7.0/8.0)
 
         self.hist = defaultdict(int)
-        self.read_latencies = []
-        self.write_latencies = []
+        # self.read_latencies = []
+        # self.write_latencies = []
+        self.read_latencies_hist = defaultdict(int)
+        self.write_latencies_hist = defaultdict(int)
+        self.read_latencies_sum = 0.0
+        self.write_latencies_sum = 0.0
         self.waf = {"request" : 0, "actual" : 0}
         self.raf = {"request" : 0, "actual" : 0}
         self.enable_recording = False
@@ -104,35 +108,59 @@ class Ftl(ftlbuilder.FtlBuilder):
         self.counter['mapping_table_read_miss'] = 0
         self.counter['mapping_table_read_hit'] = 0
         log_msg('warm_write_finsh:')
-        self.read_latencies = []
-        self.write_latencies = []
+        # self.read_latencies = []
+        # self.write_latencies = []
+        self.read_latencies_hist = defaultdict(int)
+        self.write_latencies_hist = defaultdict(int)
+        self.read_latencies_sum = 0.0
+        self.write_latencies_sum = 0.0
         self.waf = {"request" : 0, "actual" : 0}
         self.raf = {"request" : 0, "actual" : 0}
         self.start_time = self.env.now
         yield self.env.timeout(1)
         
+    def _get_p99_from_hist(hist_dict, total_requests):
+        if total_requests == 0 or not hist_dict:
+            return 0.0
+        target_count = total_requests * 0.99
+        cumulative = 0
+        # 按延迟从小到大遍历
+        for lat in sorted(hist_dict.keys()):
+            cumulative += hist_dict[lat]
+            if cumulative >= target_count:
+                return float(lat)
+        return 0.0
         
     def end_ssd(self):
 
         self.metadata.mapping_table.compact(promote=True)
-
-        log_msg("End-to-end overall response time per page: %.2fus; Num of requests %d" % ((np.sum(self.write_latencies) + np.sum(self.read_latencies)) /  (self.waf["request"] + self.raf['request']), self.waf["request"] + self.raf['request']))
         
-        if len(self.read_latencies) > 0 :
-            read_p99 = np.percentile(self.read_latencies, 99)
-            log_msg("Read p99 latency %.2fus;" % ( read_p99 ) )
-        if len(self.write_latencies) > 0:
-            write_p99 = np.percentile(self.write_latencies, 99)
-            log_msg("write p99 latency %.2fus;" % ( write_p99 ) )
-        latency = self.read_latencies + self.write_latencies
-        all_p99 = np.percentile(latency, 99)
-        log_msg("all_latency %.2fus" % ( all_p99 ))
+        total_reqs = self.waf["request"] + self.raf['request']
+        total_latency_sum = self.write_latencies_sum + self.read_latencies_sum
         
-        if len(self.read_latencies) > 0:
-            log_msg("End-to-end read response time per page: %.2fus; Num of reads %d" % (np.sum(self.read_latencies) / self.raf['request'], self.raf['request']))
+        if total_reqs > 0:
+            log_msg("End-to-end overall response time per page: %.2fus; Num of requests %d" % 
+                    (total_latency_sum / total_reqs, total_reqs))
 
-        if len(self.write_latencies) > 0:
-            log_msg("End-to-end write response time per page: %.2fus; Num of writes %d" % (np.sum(self.write_latencies) /  self.waf["request"], self.waf['request']))
+        if self.raf['request'] > 0:
+            read_p99 = self._get_p99_from_hist(self.read_latencies_hist, self.raf['request'])
+            log_msg("Read p99 latency %.2fus;" % (read_p99))
+            log_msg("End-to-end read response time per page: %.2fus; Num of reads %d" % 
+                    (self.read_latencies_sum / self.raf['request'], self.raf['request']))
+
+        if self.waf["request"] > 0:
+            write_p99 = self._get_p99_from_hist(self.write_latencies_hist, self.waf["request"])
+            log_msg("write p99 latency %.2fus;" % (write_p99))
+            log_msg("End-to-end write response time per page: %.2fus; Num of writes %d" % 
+                    (self.write_latencies_sum / self.waf["request"], self.waf['request']))
+
+        # log_msg("End-to-end overall response time per page: %.2fus; Num of requests %d" % ((np.sum(self.write_latencies) + np.sum(self.read_latencies)) /  (self.waf["request"] + self.raf['request']), self.waf["request"] + self.raf['request']))
+
+        # if len(self.read_latencies) > 0:
+        #     log_msg("End-to-end read response time per page: %.2fus; Num of reads %d" % (np.sum(self.read_latencies) / self.raf['request'], self.raf['request']))
+
+        # if len(self.write_latencies) > 0:
+        #     log_msg("End-to-end write response time per page: %.2fus; Num of writes %d" % (np.sum(self.write_latencies) /  self.waf["request"], self.waf['request']))
 
         if self.waf['request'] > 0:
             log_msg("Write Amplification Factor: %.2f; Actual: %d; Request: %d" % (self.waf['actual'] / float(self.waf['request']), self.waf['actual'], self.waf['request']))
@@ -160,10 +188,6 @@ class Ftl(ftlbuilder.FtlBuilder):
         iops = (request_all / (self.env.now - self.start_time))*1e9
         log_msg("iops:%f" % (iops))
 
-        ftl_lpns = 0
-        for frame_no, frame in self.metadata.mapping_table.frames.items():
-            ftl_lpns += len(frame.points)
-        log_msg("FTL LPNs", ftl_lpns)
         single_point_count = 0
         seg_count = 0
         point_count = 0
@@ -210,15 +234,10 @@ class Ftl(ftlbuilder.FtlBuilder):
         elif mode == "Write":
             display_bytes = self.written_bytes
         
-        ftl_lpns = 0
-        log_msg("frames:%d"%(len(self.metadata.mapping_table.frames)))
-        for frame_no, frame in self.metadata.mapping_table.frames.items():
-            ftl_lpns += len(frame.points)
-        log_msg("FTL LPNs", ftl_lpns)
         avg_lookup = 0
         if float(sum(self.metadata.levels.values())) != 0:
             avg_lookup = sum(int(k)*int(v) for k, v in self.metadata.levels.items()) / float(sum(self.metadata.levels.values()))
-        log_msg('Event', self.rw_events, '%s (MB)' % mode, display_bytes / MB, "Mapping Table", self.metadata.mapping_table.memory, "Reference Mapping Table", self.metadata.reference_mapping_table.memory, "Distribution of lookups", self.metadata.levels[1], sum(self.metadata.levels.values()), avg_lookup, "Misprediction", self.hist, "Latency per page: %.2fus" % ((np.sum(self.write_latencies) + np.sum(self.read_latencies)) /  (self.waf["request"] + self.raf['request'])))
+        log_msg('Event', self.rw_events, '%s (MB)' % mode, display_bytes / MB, "Mapping Table", self.metadata.mapping_table.memory, "Reference Mapping Table", self.metadata.reference_mapping_table.memory, "Distribution of lookups", self.metadata.levels[1], sum(self.metadata.levels.values()), avg_lookup, "Misprediction", self.hist)#, "Latency per page: %.2fus" % ((np.sum(self.write_latencies) + np.sum(self.read_latencies)) /  (self.waf["request"] + self.raf['request'])))
         sys.stdout.flush()
 
         # if float(self.waf['request']) > 0:
@@ -310,8 +329,10 @@ class Ftl(ftlbuilder.FtlBuilder):
 
         if self.enable_recording:
             if requested_read > 0:
-                self.read_latencies += [(end_time - start_time) / 1000.0] # [(end_time - start_time)/(1000.0*requested_read)]*int(requested_read)
-
+                # self.read_latencies += [(end_time - start_time) / 1000.0] # [(end_time - start_time)/(1000.0*requested_read)]*int(requested_read)
+                latency_us = (end_time - start_time) / requested_read
+                self.read_latencies_hist[int(latency_us)] += 1
+                self.read_latencies_sum += latency_us
                 self.raf["request"] += requested_read
                 self.raf["actual"] += lpns_to_read
                 self.waf["actual"] += len(total_pages_to_write)
@@ -509,7 +530,10 @@ class Ftl(ftlbuilder.FtlBuilder):
         end_time = self.env.now # <----- end
 
         if self.enable_recording:
-            self.write_latencies.append((end_time - start_time)/1000.0)
+            # self.write_latencies.append((end_time - start_time)/1000.0)
+            latency_us = (end_time - start_time) / 1000.0
+            self.write_latencies_hist[int(latency_us)] += 1
+            self.write_latencies_sum += latency_us
             self.waf["request"] += extent.lpn_count
             self.waf["actual"] += len(total_pages_to_write)
         
@@ -919,8 +943,10 @@ class FlashMetadata(object):
         self.mapping_table = FrameLogPLR(confobj, self, counter, gamma=self.gamma)
 
         Segment.PAGE_PER_BLOCK = self.flash_npage_per_block
-        self.reference_mapping_table = PFTL()
-        self.ppn_to_lpn_mapping_table = PFTL()
+        # self.reference_mapping_table = PFTL()
+        # self.ppn_to_lpn_mapping_table = PFTL()
+        self.reference_mapping_table = PFTL(max_lpns=self.total_pages)
+        self.ppn_to_lpn_mapping_table = PFTL(max_lpns=self.total_pages)
         # flash block -> last invalidation time and num of valid pages
         self.bvc = BlockValidityCounter(confobj)
         # Key metadata structures
@@ -1192,7 +1218,8 @@ class Segment():
     FPR = 0.01
     PAGE_PER_BLOCK = 256
     BITMAP = True
-
+    __slots__ = ['b', 'k', 'x1', 'x2', 'accurate', 'filter', '_points']
+    
     def __init__(self, k, b, x1, x2, points=None):
         self.b = b
         self.k = k
@@ -1202,7 +1229,7 @@ class Segment():
         self.filter = None
 
         if points:
-            self._points = points  # set of points only for verification purpose
+            # self._points = points  # set of points only for verification purpose
             self.accurate, consecutive = self.check_properties(points)
 
             if not consecutive:
@@ -1228,7 +1255,7 @@ class Segment():
         return "(%d, %.4f, %d, %d, %s)" % (self.b, self.k, self.x1, self.x2, self.accurate)
 
     def full_str(self):
-        return "(%d, %.4f, %d, %d, %s) " % (self.b, self.k, self.x1, self.x2, self.accurate) + str(self._points)
+        return "(%d, %.4f, %d, %d, %s) " % (self.b, self.k, self.x1, self.x2, self.accurate) #+ str(self._points)
 
     def is_valid(self, x):
         if not (self.x1 <= x and x <= self.x2):
@@ -1533,15 +1560,12 @@ class LogPLR():
         # one run is one level of segments with non-overlapping intervals
         self.runs = []
         self.frame_no = frame_no
-        self.points = set()
         # mapping from block to segments
         # self.block_map = defaultdict(list)
     
     def update(self, entries, blocknum):
         # make sure no same LPNs exist in the entries
         sorted_entries = sorted(entries)
-        for t in entries:
-            self.points.add(t[0])
         # make sure no same 'x1's exist in the new_segments
         self.plr.init()
         new_segments = self.plr.learn(sorted_entries)
@@ -2055,30 +2079,57 @@ class FrameLogPLR:
         return dist
 
         
+# class PFTL(object):
+#     def __init__(self):
+#         # store update history for verification purpose
+#         self.mapping_table = defaultdict(list)
+
+#     def set(self, lpn, ppn):
+#         self.mapping_table[lpn].append(ppn)
+            
+#     def get(self, lpn):
+#         # force check; since we are using defaultdict we don't want to create empty entry
+#         if lpn not in self.mapping_table:
+#             return None
+#         ppns = self.mapping_table[lpn]
+#         if len(ppns) > 0:
+#             return ppns[-1]
+
+#     def get_all(self, lpn):
+#         if lpn not in self.mapping_table:
+#             return None
+#         return self.mapping_table[lpn]
+
+#     @property
+#     def memory(self):
+#         return len(self.mapping_table) * (PPN_BYTES + LPN_BYTES)
+
 class PFTL(object):
-    def __init__(self):
-        # store update history for verification purpose
-        self.mapping_table = defaultdict(list)
+    def __init__(self, max_lpns):
+        # 使用 32位无符号整数，0xFFFFFFFF 代表尚未映射 (None)
+        # 这将确保 1TB 逻辑空间（约 2.68 亿个 4KB LPN）仅消耗约 1GB 内存
+        self.mapping_table = np.full(max_lpns, 0xFFFFFFFF, dtype=np.uint32)
 
     def set(self, lpn, ppn):
-        self.mapping_table[lpn].append(ppn)
-            
+        if lpn < len(self.mapping_table):
+            self.mapping_table[lpn] = ppn
+
     def get(self, lpn):
-        # force check; since we are using defaultdict we don't want to create empty entry
-        if lpn not in self.mapping_table:
+        if lpn >= len(self.mapping_table):
             return None
-        ppns = self.mapping_table[lpn]
-        if len(ppns) > 0:
-            return ppns[-1]
+        val = self.mapping_table[lpn]
+        return None if val == 0xFFFFFFFF else int(val)
 
     def get_all(self, lpn):
-        if lpn not in self.mapping_table:
-            return None
-        return self.mapping_table[lpn]
+        # 为了兼容你原代码中依赖 get_all 返回列表的逻辑 (如 validation 函数)
+        # 我们只返回包含当前最新 PPN 的列表
+        val = self.get(lpn)
+        return [val] if val is not None else None
 
     @property
     def memory(self):
-        return len(self.mapping_table) * (PPN_BYTES + LPN_BYTES)
+        # 准确返回 NumPy 数组实际占用的字节数
+        return self.mapping_table.nbytes
 
 
 
