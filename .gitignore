@@ -11,4 +11,4 @@ batch_run_leaftl.sh
 *_qd128.sh
 run.out*
 altrace*
-batch_run_*
+batch_run_leaftl.sh

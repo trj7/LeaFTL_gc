@@ -119,7 +119,7 @@ class Ftl(ftlbuilder.FtlBuilder):
         self.start_time = self.env.now
         yield self.env.timeout(1)
         
-    def _get_p99_from_hist(hist_dict, total_requests):
+    def _get_p99_from_hist(self, hist_dict, total_requests):
         if total_requests == 0 or not hist_dict:
             return 0.0
         target_count = total_requests * 0.99
@@ -188,24 +188,24 @@ class Ftl(ftlbuilder.FtlBuilder):
         iops = (request_all / (self.env.now - self.start_time))*1e9
         log_msg("iops:%f" % (iops))
 
-        single_point_count = 0
-        seg_count = 0
-        point_count = 0
-        non_consecutive_length = 0
-        non_consecutive_point_count = 0
-        consecutive_point_count = 0
-        for frame in self.metadata.mapping_table.frames.values():
-            for run in frame.runs:
-                seg_count += len(run)
-                for seg in run:
-                    point_count += len(seg._points)
-                    if seg.x1 == seg.x2: 
-                        single_point_count += 1
-                    if not seg.consecutive:
-                        non_consecutive_length +=1
-                        non_consecutive_point_count += len(seg._points)
-                    else:
-                        consecutive_point_count += len(seg._points)
+        # single_point_count = 0
+        # seg_count = 0
+        # point_count = 0
+        # non_consecutive_length = 0
+        # non_consecutive_point_count = 0
+        # consecutive_point_count = 0
+        # for frame in self.metadata.mapping_table.frames.values():
+        #     for run in frame.runs:
+        #         seg_count += len(run)
+        #         for seg in run:
+        #             point_count += len(seg._points)
+        #             if seg.x1 == seg.x2: 
+        #                 single_point_count += 1
+        #             if not seg.consecutive:
+        #                 non_consecutive_length +=1
+        #                 non_consecutive_point_count += len(seg._points)
+        #             else:
+        #                 consecutive_point_count += len(seg._points)
         # log_msg("single_point_count: %d" % (single_point_count))
         # log_msg("seg_count: %d" % ( seg_count ))
         # log_msg('point_count: %d'% ( point_count ) )
@@ -330,7 +330,7 @@ class Ftl(ftlbuilder.FtlBuilder):
         if self.enable_recording:
             if requested_read > 0:
                 # self.read_latencies += [(end_time - start_time) / 1000.0] # [(end_time - start_time)/(1000.0*requested_read)]*int(requested_read)
-                latency_us = (end_time - start_time) / requested_read
+                latency_us = (end_time - start_time) / (requested_read*1000.0)
                 self.read_latencies_hist[int(latency_us)] += 1
                 self.read_latencies_sum += latency_us
                 self.raf["request"] += requested_read
@@ -688,6 +688,8 @@ class Ftl(ftlbuilder.FtlBuilder):
             erase_procs += [self.env.process(self.des_flash.erase_pbn_extent(pbn_start = erased_pbn, pbn_count = 1, tag = None))]
 
         write_procs = []
+        self.waf["actual"] += len(all_ppns_to_write)
+        self.waf["actual"] += len(mapping)
         for ppn in all_ppns_to_write:
             p = self.env.process(self._write_ppns([ppn]))
             write_procs.append(p)
