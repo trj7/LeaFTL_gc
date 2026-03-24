@@ -32,4 +32,4 @@ pypy "$SCRIPT_DIR/../run_ftl" \
     -p 4096 \
     -o "$OUT_DIR/${TRACE_NAME}"\
     -cf "$SCRIPT_DIR/../config/1T.json" \
-    >> "$OUT_DIR/${TRACE_NAME}_stdout.txt" 2>&1
+    >> "$OUT_DIR/${TRACE_NAME}_stdout_qd128.txt" 2>&1
