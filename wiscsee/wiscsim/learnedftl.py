@@ -107,6 +107,7 @@ class Ftl(ftlbuilder.FtlBuilder):
         self.counter['mapping_table_write_hit'] = 0
         self.counter['mapping_table_read_miss'] = 0
         self.counter['mapping_table_read_hit'] = 0
+        self.counter["flush mapping table"] = 0
         log_msg('warm_write_finsh:')
         # self.read_latencies = []
         # self.write_latencies = []
@@ -1076,7 +1077,7 @@ class FlashMetadata(object):
             if not self.reference_mapping_table.get(lpn):
                 continue
 
-            old_ppn, pages_to_write, pages_to_read = self.lpn_to_ppn(lpn)
+            # old_ppn, pages_to_write, pages_to_read = self.lpn_to_ppn(lpn)
             old_ppn = self.reference_mapping_table.get(lpn)
             if old_ppn:
                 self.pvb.invalidate_page(old_ppn)
@@ -2018,8 +2019,8 @@ class FrameLogPLR:
             self.change_size_of_frame(frame_no, 0) 
             evicted_frames.append(frame_no)
             new_ppn, old_ppn = self.allocate_ppn_for_frame(frame_no)
-            if self.dirty[frame_no]:
-                self.counter["flush mapping table"] += 1
+            # if self.dirty[frame_no]:
+            self.counter["flush mapping table"] += 1
             if old_ppn:
                 self.metadata.pvb.invalidate_page(old_ppn)
             self.dirty[frame_no] = False

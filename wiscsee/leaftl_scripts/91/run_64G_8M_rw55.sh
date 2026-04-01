@@ -26,4 +26,4 @@ pypy "$SCRIPT_DIR/../run_ftl" \
     -p 4096 \
     -o "$OUT_DIR/test_64G_8M" \
     -cf "$SCRIPT_DIR/../config/64G.json" \
-    >> "$OUT_DIR/test_64G_8M_stdout_write_rw55.txt" 2>&1
+    >> "$OUT_DIR/test_64G_8M_stdout_rw55.txt" 2>&1
